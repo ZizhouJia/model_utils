@@ -168,5 +168,5 @@ class solver(object):
         raise NotImplementedError
 
 
-    def train_model(self, param_dict, epochs = 100):
+    def train_model(self, param_dict):
         raise NotImplementedError
