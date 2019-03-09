@@ -142,7 +142,7 @@ class solver(object):
         self.models = []
         i = 0
         while(True):
-            current_file = os.path.join(path, file_name+"-"+str(i)+".pkl"))
+            current_file = os.path.join(path, file_name+"-"+str(i)+".pkl")
             if(not os.path.exists(current_file)):
                 break;
             self.models.append(torch.load(current_file))

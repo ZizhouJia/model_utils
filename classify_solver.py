@@ -10,7 +10,7 @@ import torch.nn as nn
 # ["test_loader"]
 
 
-class simple_classify_solver(sovler.sovler):
+class simple_classify_solver(solver.solver):
     def __init__(self, models, model_name, save_path='checkpoints'):
         super(simple_classify_solver, self).__init__(
             models, model_name, save_path)
@@ -23,8 +23,8 @@ class simple_classify_solver(sovler.sovler):
         for step,(x,y) in enumerate(dataloader):
             counter=counter+1
             input_dict={}
-            input_dict["x"]=x
-            input_dict["y"]=y
+            input_dict["x"]=x.cuda()
+            input_dict["y"]=y.cuda()
             loss,correct=self.test_one_batch(input_dict)
             total_loss+=loss
             total_correct+=correct
@@ -70,8 +70,8 @@ class simple_classify_solver(sovler.sovler):
         for i in range(0,epochs):
             for step,(x,y) in enumerate(dataloader):
                 input_dict={}
-                input_dict["x"]=x
-                input_dict["y"]=y
+                input_dict["x"]=x.cuda()
+                input_dict["y"]=y.cuda()
                 loss=self.train_one_batch(input_dict)
                 iteration_count+=1
                 if(iteration_count%1==0):
@@ -85,6 +85,7 @@ class simple_classify_solver(sovler.sovler):
             if(val_result["test_acc"]>best_acc):
                 best_acc=val_result["test_acc"]
                 self.save_params(0)
+            self.update_optimizers(i)
         test_param_dict={}
         test_param_dict["loader"]=test_loader
         self.restore_params(self.time_string,0)

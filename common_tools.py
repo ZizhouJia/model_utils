@@ -37,7 +37,6 @@ def generate_optimizers(models, lrs, optimizer_type='sgd', weight_decay=0.001):
             ), lr=lrs[i], weight_decay=weight_decay, betas=(0.5, 0.999))
             # optimizer=nn.DataParallel(optimizer)
             optimizers.append(optimizer)
-
     return optimizers
 
 
@@ -45,5 +44,5 @@ def generate_optimizers(models, lrs, optimizer_type='sgd', weight_decay=0.001):
 def parallel(models, device_ids=[0]):
     ret = []
     for i in range(0, len(models)):
-    ret.append(nn.DataParallel(models[i], device_ids=device_ids))
+        ret.append(nn.DataParallel(models[i], device_ids=device_ids))
     return ret
