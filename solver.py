@@ -95,7 +95,7 @@ class solver(object):
         path = os.path.join(path, self.model_name)
         path = os.path.join(path, time_string)
         if(epoch != -1):
-            path = os.path.join(path, epoch)
+            path = os.path.join(path, str(epoch))
         file_name = "model"
 
         for i in range(0, len(self.models)):

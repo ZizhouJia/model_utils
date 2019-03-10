@@ -20,6 +20,7 @@ class simple_classify_solver(solver.solver):
         dataloader=param_dict["loader"]
         counter=0
         total_loss=0
+        total_correct=0
         for step,(x,y) in enumerate(dataloader):
             counter=counter+1
             input_dict={}
@@ -31,6 +32,7 @@ class simple_classify_solver(solver.solver):
         result={}
         result["test_loss"]=total_loss/counter
         result["test_acc"]=total_correct/dataloader.dataset.__len__()
+        return result
 
     def train_one_batch(self, input_dict):
         optimizer=self.optimizers[0]
