@@ -12,14 +12,17 @@ def get_time_string():
 
 
 class solver(object):
-
-    def __init__(self, models, model_name, save_path="checkpoints"):
+    def __init__(self, models,optimizers,kernel_processer,model_name,save_path="checkpoints"):
         self.models = models
         self.model_name = model_name
         self.save_path = save_path
         self.time_string = get_time_string()
         self.writer = SummaryWriter()
-        self.optimizers = None
+        self.optimizers = optimizers
+        self.kernel_processer=kernel_processer
+        self.is_cuda=False
+        self.kernel_processer.set_models(models)
+        self.kernel_processer.set_optimizers(optimizers)
 
     def get_models(self):
         return self.models
@@ -31,17 +34,16 @@ class solver(object):
     def cuda(self):
         for i in range(0, len(self.models)):
             self.models[i] = self.models[i].cuda()
+        self.is_cuda=True
 
     def cpu(self):
         for i in range(0, len(self.models)):
             self.models[i] = self.models[i].cpu()
+        self.is_cuda=False
 
     def set_optimizers(self, optimizers):
         self.optimizers = optimizers
-
-    def zero_grad_for_all(self):
-        for optimizer in self.optimizers:
-            optimizer.zero_grad()
+        self.kernel_processer.set_optimizers(optimizers)
 
     def train_mode(self):
         for model in self.models:
@@ -152,21 +154,9 @@ class solver(object):
               " has already been restored "+self.time_string)
 
 
-    def update_optimizers(self, epoch):
-        pass
-
-
     def test_model(self, param_dict):
         raise NotImplementedError
 
 
-    def train_one_batch(self, input_dict):
-        raise NotImplementedError
-
-
-    def test_one_batch(self, input_dict):
-        raise NotImplementedError
-
-
-    def train_model(self, param_dict):
+    def train_model(self,epoch,param_dict):
         raise NotImplementedError
