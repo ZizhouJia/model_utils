@@ -20,7 +20,6 @@ class solver(object):
         self.writer = SummaryWriter()
         self.optimizers = optimizers
         self.kernel_processer=kernel_processer
-        self.is_cuda=False
         self.kernel_processer.set_models(models)
         self.kernel_processer.set_optimizers(optimizers)
 
@@ -30,16 +29,6 @@ class solver(object):
     def init_models(self, init_func):
         for model in self.models:
             init_func(model)
-
-    def cuda(self):
-        for i in range(0, len(self.models)):
-            self.models[i] = self.models[i].cuda()
-        self.is_cuda=True
-
-    def cpu(self):
-        for i in range(0, len(self.models)):
-            self.models[i] = self.models[i].cpu()
-        self.is_cuda=False
 
     def set_optimizers(self, optimizers):
         self.optimizers = optimizers
