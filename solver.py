@@ -17,7 +17,7 @@ class solver(object):
         self.model_name = model_name
         self.save_path = save_path
         self.time_string = get_time_string()
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter("runs/"+self.model_name+"-"+self.time_string)
         self.optimizers = optimizers
         self.kernel_processer=kernel_processer
         self.kernel_processer.set_models(models)

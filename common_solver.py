@@ -23,10 +23,10 @@ class common_solver(solver.solver):
             if(evaluate_dict is None):
                 evaluate_dict={}
                 for key in output_dict.keys():
-                    evaluate_dict[key]=output_dict[key]*counter
+                    evaluate_dict[key]=output_dict[key]*data_counter
             else:
                 for key in output_dict.keys():
-                    evaluate_dict[key]+=(output_dict[key]*counter)
+                    evaluate_dict[key]+=(output_dict[key]*data_counter)
         for key in evaluate_dict.keys():
             evaluate_dict[key]=evaluate_dict[key]/counter
         evaluate_value=evaluate_value/counter
@@ -37,13 +37,14 @@ class common_solver(solver.solver):
         self.train_mode()
         dataloader=param_dict["train_loader"]
         dataset_numbers=dataloader.dataset.__len__()
+        it_numbers=int((dataset_numbers+dataloader.batch_size-1)/dataloader.batch_size)
         for step,data in enumerate(dataloader):
             for i in range(0,len(data)):
                 data[i]=data[i].cuda()
             evaluate_dict=self.kernel_processer.train(step,data)
-            self.write_log(evaluate_dict,epoch*dataset_numbers+step)
+            self.write_log(evaluate_dict,epoch*it_numbers+step)
             self.output_loss(evaluate_dict,epoch,step)
-            self.kernel_processer.update_optimizers(epoch,step,dataset_numbers)
+            self.kernel_processer.update_optimizers(epoch,step,it_numbers)
 
     #param_dict ["train_loader","val_loader","test_loader"]
     def main(self,param_dict):
@@ -60,4 +61,5 @@ class common_solver(solver.solver):
                 self.save_params("best")
         self.restore_params(self.time_string,"best")
         tev,ted=self.test_model(param_dict,"test")
+        self.write_log(ted,epochs+5)
         return tev,ted

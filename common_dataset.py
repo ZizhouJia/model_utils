@@ -55,17 +55,18 @@ class dict_dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         if(self.mode=="train"):
-            return self.train_data_numbers/500
+            return self.train_data_numbers
         if(self.mode=="val"):
-            return self.val_data_numbers/20
+            return self.val_data_numbers
         if(self.mode=="test"):
-            return self.test_data_numbers/200
+            return self.test_data_numbers
 
 class three_set_dataset(dict_dataset):
-    def __init__(self,dataset_dict,path,mode,transform):
+    def __init__(self,dataset_dict,path,mode,transform,load_mode=True):
         self.path=path
         self.mode=mode
         self.transform=transform[self.mode]
+        self.load_mode=load_mode
         train_dict=dataset_dict["train"]
         val_dict=dataset_dict["val"]
         test_dict=dataset_dict["test"]
@@ -74,3 +75,4 @@ class three_set_dataset(dict_dataset):
         self.test_data_numbers=len(test_dict)
         self.dataset_dict_list=train_dict.keys()+val_dict.keys()+test_dict.keys()
         self.dataset_dict=dict(train_dict.items()+val_dict.items()+test_dict.items())
+        self.image_dict={}

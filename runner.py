@@ -70,7 +70,7 @@ class task(object):
 #a runner is a controller of a set of tasks and a set of gpus
 class runner(object):
     def __init__(self):
-        self.writer=SummaryWriter()
+        self.writer=SummaryWriter("runs/runner-logs")
         nvmlInit()
         self.nvidia_free=[]
         self.nvidia_total=[]
@@ -91,7 +91,6 @@ class runner(object):
             nvidia_total.append(meminfo.total/1024/1024)
         self.nvidia_free=nvidia_free
         self.nvidia_total=nvidia_total
-        print(self.nvidia_free)
 
     def generate_tasks(self,task_list):
         tasks=[]
@@ -134,12 +133,11 @@ class runner(object):
                     w=worker(t,device_use,self.error_dict,self.result_dict)
                     self.running_tasks.append(w)
                     w.start()
-                    w.join()
                     if(self.error_dict[t.task_name]!=0):
                         print(self.error_dict[t.task_name])
                     handled=i
                     self.running_tasks.remove(w)
-                    print("************************finish task "+t.task_name+"****************")
+                    time.sleep(50)
                     break
             if(handled!=-1):
                 del self.tasks[handled]

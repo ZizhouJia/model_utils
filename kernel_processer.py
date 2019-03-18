@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 
-
-
-
 class kernel_processer(object):
     def __init__(self):
         self.models=None
@@ -32,6 +29,9 @@ class kernel_processer(object):
             x=x.view(-1,x.size(2),x.size(3),x.size(4))
             data=(x,y)
         return data
+
+    def update_optimizers(self,epoch,step,total_data_numbers):
+        pass
 
 
 
