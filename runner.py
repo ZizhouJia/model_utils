@@ -33,7 +33,7 @@ class worker(multiprocessing.Process):
         self.error_dict=error_dict
         self.error_dict[t.task_name]=0
         self.result_dict=result_dict
-        self.result_dict[t.task_name]=0
+        self.result_dict[t.task_name]=-1
 
     def run(self):
         try:
@@ -41,6 +41,7 @@ class worker(multiprocessing.Process):
             self.result_dict[self.t.task_name]=solver.main(solver_param_dict)
         except Exception,e:
             self.error_dict[self.t.task_name]=traceback.print_exc()
+            self.result_dict[self.t.task_name]="error"
 
     def _init_task(self,t,device_use):
         #build models
@@ -122,7 +123,7 @@ class runner(object):
             return -1
 
     def main_loop(self):
-        while(len(self.tasks)!=0):
+        while(len(self.tasks)!=0 or len(self.running_tasks)!=0):
             self.update_nvidia_info()
             handled=-1
             for i in range(0,len(self.tasks)):
@@ -131,12 +132,9 @@ class runner(object):
                 if(device_use!=-1):
                     print("************************begin task "+t.task_name+"****************")
                     w=worker(t,device_use,self.error_dict,self.result_dict)
-                    self.running_tasks.append(w)
                     w.start()
-                    if(self.error_dict[t.task_name]!=0):
-                        print(self.error_dict[t.task_name])
+                    self.running_tasks.append(t.task_name)
                     handled=i
-                    self.running_tasks.remove(w)
                     time.sleep(50)
                     break
             if(handled!=-1):
@@ -144,3 +142,16 @@ class runner(object):
             else:
                 print("no device can be used")
                 time.sleep(10)
+            end_name=-1
+            for i in range(0,len(self.running_tasks)):
+                t_name=self.running_tasks[i]
+                if(self.result_dict[t_name]!=-1):
+                    end_name=i
+                    print("************************end task "+t_name+"****************")
+                    break;
+                if(self.result_dict[t_name]=="error"):
+                    end_name=i
+                    print(self.error_dict[t_name])
+                    break;
+            if(end_name!=-1):
+                del self.running_tasks[end_name]
