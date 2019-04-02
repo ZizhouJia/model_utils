@@ -7,11 +7,12 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 #the dict dict["file name"]=label
 class dict_dataset(torch.utils.data.Dataset):
-    def __init__(self,dataset_dict,path,mode,transform,percent=[0.7,0.1,0.2],shuffle=True,load_mode=True):
+    def __init__(self,dataset_dict,path,mode,transform,percent=[0.7,0.1,0.2],shuffle=True,load_mode=True,load_mode_reshape_size=(600,600)):
         self.dataset_dict=dataset_dict
         self.path=path
         self.mode=mode
         self.load_mode=load_mode
+        self.load_mode_reshape_size=load_mode_reshape_size
         self.dataset_dict_list=self.dataset_dict.keys()
         random.seed(666)
         random.shuffle(self.dataset_dict_list)
@@ -25,7 +26,7 @@ class dict_dataset(torch.utils.data.Dataset):
         image_name=os.path.join(self.path,key_name)
         fp=open(image_name+".jpg")
         image=Image.open(fp).convert('RGB')
-        return image
+        return image.resize(self.load_mode_reshape_size,Image.BILINEAR)
 
     def _mapping_index(self,index):
         actual_index=index
@@ -62,11 +63,12 @@ class dict_dataset(torch.utils.data.Dataset):
             return self.test_data_numbers
 
 class three_set_dataset(dict_dataset):
-    def __init__(self,dataset_dict,path,mode,transform,load_mode=True):
+    def __init__(self,dataset_dict,path,mode,transform,load_mode=True,load_mode_reshape_size=(600,600)):
         self.path=path
         self.mode=mode
         self.transform=transform[self.mode]
         self.load_mode=load_mode
+        self.load_mode_reshape_size=load_mode_reshape_size
         train_dict=dataset_dict["train"]
         val_dict=dataset_dict["val"]
         test_dict=dataset_dict["test"]
