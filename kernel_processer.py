@@ -33,8 +33,8 @@ class kernel_processer(object):
     def update_optimizers(self,epoch,step,total_data_numbers):
         pass
 
-
-
+    def on_finish(self):
+        pass
 
     def zero_grad_for_all(self):
         for optimizer in self.optimizers:
@@ -44,6 +44,9 @@ class kernel_processer(object):
         raise NotImplementedError
 
     def test(self,step,data):
+        raise NotImplementedError
+
+    def evaluate(self,step,data):
         raise NotImplementedError
 
     def update_optimizers(self,epoch,step,total_data_numbers):

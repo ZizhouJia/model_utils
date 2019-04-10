@@ -85,7 +85,7 @@ class runner(object):
         nvidia_free=[]
         nvidia_total=[]
         deviceCount = nvmlDeviceGetCount()
-        for i in range(deviceCount):
+        for i in range(0,deviceCount):
             handle=nvmlDeviceGetHandleByIndex(i)
             meminfo=nvmlDeviceGetMemoryInfo(handle)
             nvidia_free.append(meminfo.free/1024/1024)
@@ -135,7 +135,7 @@ class runner(object):
                     w.start()
                     self.running_tasks.append(t.task_name)
                     handled=i
-                    time.sleep(50)
+                    time.sleep(20)
                     break
             if(handled!=-1):
                 del self.tasks[handled]

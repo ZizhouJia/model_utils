@@ -7,7 +7,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 #the dict dict["file name"]=label
 class dict_dataset(torch.utils.data.Dataset):
-    def __init__(self,dataset_dict,path,mode,transform,percent=[0.7,0.1,0.2],shuffle=True,load_mode=True,load_mode_reshape_size=(600,600)):
+    def __init__(self,dataset_dict,path,mode,transform,percent=[0.7,0.1,0.2],shuffle=True,load_mode=False,load_mode_reshape_size=(600,600)):
         self.dataset_dict=dataset_dict
         self.path=path
         self.mode=mode
@@ -52,7 +52,12 @@ class dict_dataset(torch.utils.data.Dataset):
         else:
             image=self._read_image(key_name)
         image=self.transform(image)
-        return image,label
+
+        if isinstance(label,list):
+            label.insert(0,image)
+            return tuple(label)
+        else:
+            return image,label
 
     def __len__(self):
         if(self.mode=="train"):
