@@ -4,7 +4,7 @@ import torch
 import os
 from PIL import Image,ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
+# import Image
 #the dict dict["file name"]=label
 class dict_dataset(torch.utils.data.Dataset):
     def __init__(self,dataset_dict,path,mode,transform,percent=[0.7,0.1,0.2],shuffle=True,load_mode=False,load_mode_reshape_size=(600,600)):
@@ -24,9 +24,12 @@ class dict_dataset(torch.utils.data.Dataset):
 
     def _read_image(self,key_name):
         image_name=os.path.join(self.path,key_name)
-        fp=open(image_name+".jpg")
-        image=Image.open(fp).convert('RGB')
-        return image.resize(self.load_mode_reshape_size,Image.BILINEAR)
+        image=Image.open(image_name+".jpg").convert('RGB')
+        if(self.load_mode):
+            return image.resize(self.load_mode_reshape_size,Image.BILINEAR)
+        else:
+            return image
+
 
     def _mapping_index(self,index):
         actual_index=index
@@ -53,7 +56,11 @@ class dict_dataset(torch.utils.data.Dataset):
             image=self._read_image(key_name)
         image=self.transform(image)
 
-        if isinstance(label,list):
+        if(isinstance(label,list)):
+            label.insert(0,image)
+            return tuple(label)
+        if(isinstance(label,tuple)):
+            label=list(label)
             label.insert(0,image)
             return tuple(label)
         else:
@@ -68,7 +75,7 @@ class dict_dataset(torch.utils.data.Dataset):
             return self.test_data_numbers
 
 class three_set_dataset(dict_dataset):
-    def __init__(self,dataset_dict,path,mode,transform,load_mode=True,load_mode_reshape_size=(600,600)):
+    def __init__(self,dataset_dict,path,mode,transform,load_mode=False,load_mode_reshape_size=(600,600)):
         self.path=path
         self.mode=mode
         self.transform=transform[self.mode]

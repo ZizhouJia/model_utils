@@ -37,8 +37,9 @@ class worker(multiprocessing.Process):
 
     def run(self):
         try:
-            solver,solver_param_dict=self._init_task(self.t,self.device_use)
-            self.result_dict[self.t.task_name]=solver.main(solver_param_dict)
+            solver=self._init_task(self.t,self.device_use)
+            solver.main_loop()
+            self.result_dict[self.t.task_name]=1
         except Exception,e:
             self.error_dict[self.t.task_name]=traceback.print_exc()
             self.result_dict[self.t.task_name]="error"
@@ -52,10 +53,14 @@ class worker(multiprocessing.Process):
             models.append(model_class(**param))
         models=parallel(models,device_use)
         optimizers=t.optimizers_producer["function"](models,**t.optimizers_producer["params"])
-        kernel_processer=t.kernel_processer["class"](**t.kernel_processer["params"])
-        solver=t.solver["class"](models,optimizers,kernel_processer,t.task_name,"checkpoints",**t.solver["params"])
-        solver_param_dict=t.dataset_producer["function"](**t.dataset_producer["params"])
-        return solver,solver_param_dict
+        config=t.config
+        solver=t.solver["class"](**t.solver["params"])
+        solver.set_models(models)
+        solver.set_task_name(t.task_name)
+        solver.set_optimizers(optimizers)
+        solver.set_config(config)
+        solver.init_summary_writer()
+        return solver
 
 
 class task(object):
@@ -64,8 +69,7 @@ class task(object):
         self.solver=None
         self.models=None
         self.optimizers_producer=None
-        self.kernel_processer_class=None
-        self.dataset_producer=None
+        self.config=None
         self.memory_use=[]
 
 #a runner is a controller of a set of tasks and a set of gpus
@@ -101,9 +105,8 @@ class runner(object):
             t.solver=task_list[i]["solver"]
             t.models=task_list[i]["models"]
             t.optimizers_producer=task_list[i]["optimizers"]
-            t.kernel_processer=task_list[i]["kernel"]
+            t.config=task_list[i]["config"]
             t.memory_use=task_list[i]["mem_use"]
-            t.dataset_producer=task_list[i]["dataset"]
             tasks.append(t)
         self.tasks=tasks
 
