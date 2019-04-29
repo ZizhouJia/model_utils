@@ -1,6 +1,6 @@
 
 #take the tencorp data preprocess by the transform tencorp and return the pair data
-#now it just support (x,y) pairs 
+#now it just support (x,y) pairs
 def tencrop_process(data):
     x=data[0]
     if(len(x.size())==5):
@@ -18,3 +18,8 @@ def tencrop_process(data):
         x=x.view(-1,x.size(2),x.size(3),x.size(4))
         data=(x,y)
     return data
+
+def calculate_acc(pred,y):
+    pred_label=torch.max(pred,1)[1]
+    acc=torch.sum((pred_label==y).float())/y.size(0)
+    return acc.detach().cpu().item()

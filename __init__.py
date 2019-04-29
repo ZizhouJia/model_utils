@@ -5,3 +5,4 @@ import model_utils.utils
 import model_utils.config
 import model_utils.data_provider
 import model_utils.common_dataset
+import model_utils.optimizer
