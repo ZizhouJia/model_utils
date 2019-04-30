@@ -7,24 +7,6 @@ import time
 import signal
 import traceback
 
-
-#parallel function to send the models to certain device
-def parallel(models, device_ids=[0]):
-    #set device
-    torch.cuda.set_device(device_ids[0])
-    #set gpu mode
-    for i in range(0,len(models)):
-        models[i]=models[i].cuda()
-    #sigle gpu
-    if(len(device_ids)==1):
-        return models
-    #multiple GPU
-    ret = []
-    for i in range(0, len(models)):
-        ret.append(nn.DataParallel(models[i], device_ids=device_ids))
-    return ret
-
-
 class worker(multiprocessing.Process):
     def __init__(self,t,device_use,error_dict,result_dict):
         multiprocessing.Process.__init__(self)
@@ -45,21 +27,9 @@ class worker(multiprocessing.Process):
             self.result_dict[self.t.task_name]="error"
 
     def _init_task(self,t,device_use):
-        #build models
-        models=[]
-        for i in range(0,len(t.models)):
-            model_class=t.models[i]["class"]
-            param=t.models[i]["params"]
-            models.append(model_class(**param))
-        models=parallel(models,device_use)
-        optimizers=t.optimizers_producer["function"](models,**t.optimizers_producer["params"])
         config=t.config
         solver=t.solver["class"](**t.solver["params"])
-        solver.set_models(models)
-        solver.set_task_name(t.task_name)
-        solver.set_optimizers(optimizers)
         solver.set_config(config)
-        solver.init_summary_writer()
         return solver
 
 
@@ -67,8 +37,6 @@ class task(object):
     def __init__(self):
         self.task_name=None
         self.solver=None
-        self.models=None
-        self.optimizers_producer=None
         self.config=None
         self.memory_use=[]
 
@@ -103,8 +71,6 @@ class runner(object):
             t=task()
             t.task_name=task_list[i]["task_name"]
             t.solver=task_list[i]["solver"]
-            t.models=task_list[i]["models"]
-            t.optimizers_producer=task_list[i]["optimizers"]
             t.config=task_list[i]["config"]
             t.memory_use=task_list[i]["mem_use"]
             tasks.append(t)

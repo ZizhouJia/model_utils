@@ -6,9 +6,11 @@ import numpy as np
 import torch.nn as nn
 import torchvision.utils as vutils
 import torchvision
+import h5py
 
 from . import draw
 from . import config as cfg
+form . import module
 
 def get_time_string():
     dt = datetime.now()
@@ -35,6 +37,30 @@ class solver(object):
 
     def set_config(self,config):
         self.config=config
+        self.load_config()
+
+    def load_config(self):
+
+        #set task_name
+        solver.set_task_name(self.config["task_name"])
+
+        #set summary writer
+        if(self.config["summary_writer_open"]):
+            self.init_summary_writer()
+
+        #set models
+        models=[]
+        for i in range(0,len(self.config["model_class"])):
+            model_class=self.config["model_class"][i]
+            param=self.config["model_params"][i]
+            models.append(model_class(**param))
+        models=self.parallel(models,self.config["device_use"])
+        solver.set_models(models)
+
+        #set optimizer
+        if(self.config["optimizer_function"] is not None):
+            optimizers=self.config["optimizer_function"](models,**self.config["optimizer_params"])
+            solver.set_optimizers(optimizers)
 
     def get_config(self):
         return self.config
@@ -85,6 +111,9 @@ class solver(object):
             optimizer.zero_grad()
 
     def write_log(self, loss, index):
+        if(self.writer is None):
+            print("Warning the writer is forbidon")
+            return
         for key in loss:
             self.writer.add_scalar("scalar/"+key, loss[key], index)
 
@@ -93,6 +122,9 @@ class solver(object):
         print(loss)
 
     def write_log_image(self, image, index):
+        if(self.writer is None):
+            print("Warning the writer is forbidon")
+            return
         for key in image:
             self.writer.add_image(
                 'image/'+key, vutils.make_grid(image[key], 1), index)
@@ -194,6 +226,23 @@ class solver(object):
         print("the models params has already been restored")
 
 
+    #parallel function to send the models to certain device
+    def parallel(self, models, device_ids=[0]):
+        #set device
+        torch.cuda.set_device(device_ids[0])
+        #set gpu mode
+        for i in range(0,len(models)):
+            models[i]=models[i].cuda()
+        #sigle gpu
+        if(len(device_ids)==1):
+            return models
+        #multiple GPU
+        ret = []
+        for i in range(0, len(models)):
+            ret.append(nn.DataParallel(models[i], device_ids=device_ids))
+        return ret
+
+
 #solver that pair with the kernel processer
 class common_solver(solver):
     def __init__(self):
@@ -201,6 +250,7 @@ class common_solver(solver):
         self.request=request()
 
     def load_config(self):
+        super(self,common_solver).load_config()
         if(self.config is None):
             raise NotImplementedError("the main_loop begin before the config set")
         self.epochs=self.config["epochs"]
@@ -215,7 +265,6 @@ class common_solver(solver):
             self.restore_params_with_path(self.restored_path)
 
     def main_loop(self):
-        self.load_config()
         #the init process default is nothing to do
         self.init()
         #the whole training process
@@ -445,6 +494,9 @@ class vedio_classify_solver(common_solver):
         super(vedio_classify_solver,self).load_config()
         self.learning_rate_decay_iteration=self.config["learning_rate_decay_iteration"]
         self.grad_plenty=self.config["grad_plenty"]
+        self.distilling_mode=self.config["distilling_mode"] #default is False
+        if(self.distilling_mode):
+            self.distilling_loss=module.distilling_classify_loss(0.5)
 
     def init(self):
         if(len(self.models)==1):
@@ -465,12 +517,25 @@ class vedio_classify_solver(common_solver):
             pred=self.models[1](x)
             return pred
 
+    def request_data(self):
+        if(self.distilling_mode):
+            _,x,y,soft_y=self.request.data
+            return x,y,soft_y
+        else:
+            _,x,y=self.request.data
+            return x,y,None
+
     def train(self):
-        x,y=self.request.data
+        x,y,soft_y=self.request_data()
         x=x.cuda()
         y=y.cuda()
         pred=self.forward(x)
-        loss=self.loss_function(pred,y)
+        loss=None
+        if(soft_y is None):
+            loss=self.loss_function(pred,y)
+        else:
+            loss=self.distilling_loss(pred,y,y_soft)
+
         loss.backward()
         if(self.grad_plenty!=0):
             nn.utils.clip_grad_norm(self.models[0].parameters(), self.grad_plenty, norm_type=2)
@@ -500,11 +565,15 @@ class vedio_classify_solver(common_solver):
 
     def validate(self):
         model=self.models[0]
-        x,y,image_name=self.request.data
+        x,y,soft_y=self.request_data()
         x=x.cuda()
         y=y.cuda()
         pred=self.forward(x)
-        loss=self.loss_function(pred,y)
+        oss=None
+        if(soft_y is None):
+            loss=self.loss_function(pred,y)
+        else:
+            loss=self.distilling_loss(pred,y,y_soft)
         pred=pred.detach().cpu().numpy()
         y=y.detach().cpu().numpy()
         for i in range(0,pred.shape[0]):
@@ -605,6 +674,7 @@ class emssemble_solver(vedio_classify_solver):
         self.save_path=self.config["save_path"]
         self.train_type=self.config["train_type"] #frame vedio extractor
 
+
     def init(self):
         #load models
         if(self.train_type=="frame"):
@@ -660,3 +730,49 @@ class emssemble_solver(vedio_classify_solver):
                     features=features.view(-1,frames,features.size(1))
                     pred+=modle2(features).detach()
             return pred
+
+class feature_extractor_solver(solver):
+    def __init__(self):
+        super(feature_extractor_solver,self).__init__()
+
+    def config(self):
+        self.model_path=self.config["model_path"]
+        self.dataloader=self.config["data"]
+        self.save_path=self.config["save_path"]
+
+    def main_loop(self):
+        self.restore_params_with_path(path)
+        image_ids=None
+        features=None
+        labels=None
+        for step,data in enumerate(self.dataloader):
+            image_id,x,y=data
+            x=x.cuda()
+            y=y.cuda()
+            feature=self.models[0](x)
+            if(features is None):
+                image_ids=np.array(image_id)
+                features=feature.detach().numpy().cpu()
+                y=y.detach().numpy().cpu()
+            else:
+                image_ids=np.concatenate((image_ids,image_id),axis=0)
+                features=np.concatenate((features,feature),axis=0)
+                labels=np.concatenate((labels,y),axis=0)
+        f=h5py.File(self.save_path，"w")
+        dt=h5py.special_dtype(vlen=unicode)
+        f.create_dataset("feature",data=features)
+        f.create_dataset("label",data=labels)
+        ds=f.create_dataset("image_id",image_ids.shape,dtype=dt)
+        ds[:]=image_ids
+        f.close()
+
+
+class detection_solver(common_solver):
+    def __init__(self):
+        super(detection_solver,self).__init__()
+
+    def config(self):
+        super(detection_solver,self).config()
+
+    def train(self):
+        pass
