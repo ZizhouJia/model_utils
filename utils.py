@@ -1,4 +1,4 @@
-
+import numpy as np
 #take the tencorp data preprocess by the transform tencorp and return the pair data
 #now it just support (x,y) pairs
 def tencrop_process(data):
@@ -23,3 +23,10 @@ def calculate_acc(pred,y):
     pred_label=torch.max(pred,1)[1]
     acc=torch.sum((pred_label==y).float())/y.size(0)
     return acc.detach().cpu().item()
+
+def pca_three_value(data):
+    mean=np.mean(data,axis=0)
+    data_mean=data-mean
+    cov=np.cov(data,rowvar=0)
+    eig_vals,eig_vects=np.linalg.eig(np.mat(cov))
+    return mean,eig_vals,eig_vects

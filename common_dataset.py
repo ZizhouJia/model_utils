@@ -90,3 +90,52 @@ class three_set_dataset(dict_dataset):
         self.dataset_dict_list=train_dict.keys()+val_dict.keys()+test_dict.keys()
         self.dataset_dict=dict(train_dict.items()+val_dict.items()+test_dict.items())
         self.image_dict={}
+
+class matrix_dataset(torch.utils.data.Dataset):
+    def __init__(self,matrix,label,mode,transform=None,id=None,soft_label=None,shuffle=True,percent=[0.7,0.1,0.2]):
+        self.matrix=matrix
+        self.label=label
+        self.soft_label=soft_label
+        self.id=id
+        np.random.seed(666)
+        index=np.arange(self.matrix.shape[0])
+        np.random.shuffle(index)
+        self.matrix=self.matrix[index]
+        self.label=self.label[index]
+        if(self.soft_label is not None):
+            self.soft_label=self.soft_label[index]
+        if(self.id is not None):
+            self.id=self.id[index]
+        self.mode=mode
+        self.transform=transform
+        self.train_data_numbers=int(self.matrix.shape[0]*percent[0])
+        self.val_data_numbers=int(self.matrix.shape[0]*percent[1])
+        self.test_data_numbers=self.matrix.shape[0]-self.train_data_numbers-self.val_data_numbers
+
+    def _mapping_index(self,index):
+        actual_index=index
+        if(self.mode=="train"):
+            return actual_index
+        if(self.mode=="val"):
+            return actual_index+self.train_data_numbers
+        if(self.mode=="test"):
+            return actual_index+self.train_data_numbers+self.val_data_numbers
+        return actual_index
+
+    def __getitem__(self,index):
+        actual_index=self._mapping_index(index)
+        id=""
+        if(self.id is not None):
+            id=self.id[actual_index]
+        if(self.soft_label is not None):
+            return id,torch.Tensor(self.matrix[actual_index]),self.label[actual_index],torch.Tensor(self.soft_label[actual_index])
+        else:
+            return id,torch.Tensor(self.matrix[actual_index]),self.label[actual_index]
+
+    def __len__(self):
+        if(self.mode=="train"):
+            return self.train_data_numbers
+        if(self.mode=="val"):
+            return self.val_data_numbers
+        if(self.mode=="test"):
+            return self.test_data_numbers

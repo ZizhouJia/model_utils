@@ -10,7 +10,8 @@ import h5py
 
 from . import draw
 from . import config as cfg
-form . import module
+from . import module
+from . import utils
 
 def get_time_string():
     dt = datetime.now()
@@ -737,11 +738,13 @@ class feature_extractor_solver(solver):
 
     def config(self):
         self.model_path=self.config["model_path"]
-        self.dataloader=self.config["data"]
+        self.dataloader=self.config["dataset_function"](**self.config["dataset_function_params"])
         self.save_path=self.config["save_path"]
+        self.pca_save_path=self.config["pca_save_path"]
 
     def main_loop(self):
-        self.restore_params_with_path(path)
+        if(self.model_path is not None):
+            self.restore_params_with_path(path)
         image_ids=None
         features=None
         labels=None
@@ -758,13 +761,24 @@ class feature_extractor_solver(solver):
                 image_ids=np.concatenate((image_ids,image_id),axis=0)
                 features=np.concatenate((features,feature),axis=0)
                 labels=np.concatenate((labels,y),axis=0)
-        f=h5py.File(self.save_path，"w")
-        dt=h5py.special_dtype(vlen=unicode)
-        f.create_dataset("feature",data=features)
-        f.create_dataset("label",data=labels)
-        ds=f.create_dataset("image_id",image_ids.shape,dtype=dt)
-        ds[:]=image_ids
-        f.close()
+        if(self.save_path is not None):
+            f=h5py.File(self.save_path，"w")
+            dt=h5py.special_dtype(vlen=unicode)
+            f.create_dataset("feature",data=features)
+            f.create_dataset("label",data=labels)
+            ds=f.create_dataset("image_id",image_ids.shape,dtype=dt)
+            ds[:]=image_ids
+            f.close()
+
+
+        #extract pca
+        if(self.pca_save_path is not None):
+            mean,vals,vects=utils.pca_three_value(features)
+            vects=vects[:,:1024]
+            np.save(os.path.join(self.pca_save_path,"mean.npy"),mean)
+            np.save(os.path.join(self.pca_save_path,"eigenvals.npy"),vals)
+            np.save(os.path.join(self.pca_svae_path,"eigenvecs.npy"),vects)
+
 
 
 class detection_solver(common_solver):

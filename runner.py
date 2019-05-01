@@ -6,6 +6,7 @@ import multiprocessing
 import time
 import signal
 import traceback
+from copy import deepcopy
 
 class worker(multiprocessing.Process):
     def __init__(self,t,device_use,error_dict,result_dict):
@@ -28,6 +29,8 @@ class worker(multiprocessing.Process):
 
     def _init_task(self,t,device_use):
         config=t.config
+        if(config["mem_use"] is None):
+            config["mem_use"]=device_use
         solver=t.solver["class"](**t.solver["params"])
         solver.set_config(config)
         return solver
@@ -69,9 +72,9 @@ class runner(object):
         tasks=[]
         for i in range(0,len(task_list)):
             t=task()
-            t.task_name=task_list[i]["task_name"]
+            t.task_name=task_list[i]["config"]["task_name"]
             t.solver=task_list[i]["solver"]
-            t.config=task_list[i]["config"]
+            t.config=deepcopy(task_list[i]["config"])
             t.memory_use=task_list[i]["mem_use"]
             tasks.append(t)
         self.tasks=tasks
