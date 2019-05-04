@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 from datetime import datetime
 from tensorboardX import SummaryWriter
@@ -41,9 +42,8 @@ class solver(object):
         self.load_config()
 
     def load_config(self):
-
         #set task_name
-        solver.set_task_name(self.config["task_name"])
+        self.set_task_name(self.config["task_name"])
 
         #set summary writer
         if(self.config["summary_writer_open"]):
@@ -56,7 +56,7 @@ class solver(object):
             param=self.config["model_params"][i]
             models.append(model_class(**param))
         models=self.parallel(models,self.config["device_use"])
-        solver.set_models(models)
+        self.set_models(models)
 
         #set optimizer
         if(self.config["optimizer_function"] is not None):
@@ -230,6 +230,7 @@ class solver(object):
     #parallel function to send the models to certain device
     def parallel(self, models, device_ids=[0]):
         #set device
+        print("use device: "+str(device_ids))
         torch.cuda.set_device(device_ids[0])
         #set gpu mode
         for i in range(0,len(models)):
@@ -736,11 +737,13 @@ class feature_extractor_solver(solver):
     def __init__(self):
         super(feature_extractor_solver,self).__init__()
 
-    def config(self):
+    def load_config(self):
+        super(feature_extractor_solver,self).load_config()
         self.model_path=self.config["model_path"]
         self.dataloader=self.config["dataset_function"](**self.config["dataset_function_params"])
         self.save_path=self.config["save_path"]
         self.pca_save_path=self.config["pca_save_path"]
+        self.split_times=self.config["split_times"]
 
     def main_loop(self):
         if(self.model_path is not None):
@@ -748,36 +751,51 @@ class feature_extractor_solver(solver):
         image_ids=None
         features=None
         labels=None
+        self.train_mode()
         for step,data in enumerate(self.dataloader):
             image_id,x,y=data
             x=x.cuda()
             y=y.cuda()
-            feature=self.models[0](x)
-            if(features is None):
+            x=x.view(self.split_times,-1,x.size(2),x.size(3),x.size(4))
+            for i in range(0,self.split_times):
+                feature=self.models[0](x[i,:,:,:,:])
+                feature=feature.view(feature.size(0),-1)
+                if(features is None):
+                    #image_ids=np.array(image_id[i])
+                    features=feature.detach().cpu().numpy()
+                    #labels=y[i].detach().numpy().cpu()
+                else:
+                    #image_ids=np.concatenate((image_ids,image_id[i]),axis=0)
+                    features=np.concatenate((features,feature.detach().cpu().numpy()),axis=0)
+                    #labels=np.concatenate((labels,y[i]),axis=0)
+            if(image_ids is None):
                 image_ids=np.array(image_id)
-                features=feature.detach().numpy().cpu()
-                y=y.detach().numpy().cpu()
+                labels=y.detach().cpu().numpy()
             else:
                 image_ids=np.concatenate((image_ids,image_id),axis=0)
-                features=np.concatenate((features,feature),axis=0)
-                labels=np.concatenate((labels,y),axis=0)
-        if(self.save_path is not None):
-            f=h5py.File(self.save_path，"w")
-            dt=h5py.special_dtype(vlen=unicode)
-            f.create_dataset("feature",data=features)
-            f.create_dataset("label",data=labels)
-            ds=f.create_dataset("image_id",image_ids.shape,dtype=dt)
-            ds[:]=image_ids
-            f.close()
-
-
+                labels=np.concatenate((labels,y.detach().cpu().numpy()),axis=0)
+            print("step "+str(step))
         #extract pca
         if(self.pca_save_path is not None):
             mean,vals,vects=utils.pca_three_value(features)
             vects=vects[:,:1024]
             np.save(os.path.join(self.pca_save_path,"mean.npy"),mean)
             np.save(os.path.join(self.pca_save_path,"eigenvals.npy"),vals)
-            np.save(os.path.join(self.pca_svae_path,"eigenvecs.npy"),vects)
+            np.save(os.path.join(self.pca_save_path,"eigenvecs.npy"),vects)
+        if(self.save_path is not None):
+            features=features-mean.reshape(1,mean.shape[0])
+            features=np.dot(features,vects)
+            features=features/np.sqrt(1e-8+vals[:1024].reshape(1,1024))
+            print("saving feature")
+            print(features.shape)
+            print(self.save_path)
+            f=h5py.File(self.save_path,'w')
+            dt=h5py.special_dtype(vlen=str)
+            f.create_dataset("feature",data=features)
+            f.create_dataset("label",data=labels)
+            ds=f.create_dataset("image_id",image_ids.shape,dtype=dt)
+            ds[:]=image_ids
+            f.close()
 
 
 

@@ -23,14 +23,14 @@ class worker(multiprocessing.Process):
             solver=self._init_task(self.t,self.device_use)
             solver.main_loop()
             self.result_dict[self.t.task_name]=1
-        except Exception,e:
+        except Exception as e:
             self.error_dict[self.t.task_name]=traceback.print_exc()
             self.result_dict[self.t.task_name]="error"
 
     def _init_task(self,t,device_use):
         config=t.config
-        if(config["mem_use"] is None):
-            config["mem_use"]=device_use
+        if(config["device_use"] is None):
+            config["device_use"]=device_use
         solver=t.solver["class"](**t.solver["params"])
         solver.set_config(config)
         return solver
@@ -75,7 +75,7 @@ class runner(object):
             t.task_name=task_list[i]["config"]["task_name"]
             t.solver=task_list[i]["solver"]
             t.config=deepcopy(task_list[i]["config"])
-            t.memory_use=task_list[i]["mem_use"]
+            t.memory_use=task_list[i]["config"]["mem_use"]
             tasks.append(t)
         self.tasks=tasks
 
@@ -95,6 +95,7 @@ class runner(object):
             return -1
 
     def main_loop(self):
+       # multiprocessing.set_start_method("spawn")
         while(len(self.tasks)!=0 or len(self.running_tasks)!=0):
             self.update_nvidia_info()
             handled=-1

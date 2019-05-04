@@ -7,7 +7,8 @@ def config():
     "optimizer_function":None,
     "optimizer_params":{},
     "device_use":None, #set the device automatic if the device_use is None, else set the certaion numbers
-    "summary_writer_open":True #open the summart writer
+    "summary_writer_open":True, #open the summart writer
+    "mem_use":None
     }
     return config_dict
 

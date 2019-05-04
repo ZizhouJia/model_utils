@@ -1,6 +1,11 @@
 #the super version of dataloader and dataset
 import numpy as np
 import torch.multiprocessing as multiprocessing
+from multiprocessing import Manager
+import torch
+import time
+import queue
+import threading
 
 class Dataset(object):
 
@@ -11,7 +16,7 @@ class Dataset(object):
         raise NotImplementedError
 
 
-class collect_fn(object):
+class collect_fn_base(object):
     def __init__(self):
         pass
 
@@ -35,12 +40,13 @@ class collect_fn(object):
                 format_list.append(torch.Tensor(return_list[item]))
                 continue
             if(isinstance(data[0][item],torch.Tensor)):
-                format_list.append(torch.cat(return_list[item],dim=0))
+                format_list.append(torch.stack(return_list[item],dim=0))
                 continue
-            if(isinstance(data[0][item],np.Array)):
-                format_list.append(np.concatenate(return_list[item],axis=0))
+            if(isinstance(data[0][item],np.ndarray)):
+                format_list.append(np.stack(return_list[item],axis=0))
                 continue
             raise RuntimeError("unsupport data type")
+        return tuple(format_list)
 
 
 
@@ -58,7 +64,7 @@ class BufferDataLoader(object):
         if(self.num_workers<=0):
             self.num_workers=1
         if(collect_fn is None):
-            self.collect_fn=collect_fn()
+            self.collect_fn=collect_fn_base()
         else:
             self.collect_fn=collect_fn
 
@@ -70,10 +76,25 @@ class BufferDataLoader(object):
         return len(self.dataset)
 
 
-def _data_worker(dataset,index_queue,data_buffer):
+def _data_worker(worker_id,dataset,index_queue,buffer_dict):
+    #wait=threading.Condition(threading.Lock())
     while(True):
+        while(buffer_dict["buff_in_"+str(worker_id)] is not None):
+            time.sleep(0.001)
         index=index_queue.get()
-        data_buffer.put(dataset.__getitem__(index))
+        buffer_dict["buff_in_"+str(worker_id)]=dataset.__getitem__(index)
+
+
+def _run_memory_queue(workers,buffer_size,buffer_dict):
+    memory_queue=queue.Queue(buffer_size)
+    while(True):
+        for i in range(0,workers):
+            if(buffer_dict["buff_in_"+str(i)] is not None  and not memory_queue.full()):
+                memory_queue.put(buffer_dict["buff_in_"+str(i)])
+                buffer_dict["buff_in_"+str(i)]=None
+        if(buffer_dict["buff_out"] is None and not memory_queue.empty()):
+            buffer_dict["buff_out"]=memory_queue.get()
+            continue
 
 
 class _BufferDataLoaderIter(object):
@@ -87,18 +108,27 @@ class _BufferDataLoaderIter(object):
         self.collect_fn=loader.collect_fn
         self.loop_mode=False
         #init worker
-        self.data_buffer=multiprocessing.Queue(max_size=self.buffer_size)
-        self.index_queue=multiprocessing.Queue(max_size=self.buffer_size)
+        #self.wait=threading.Condition(threading.Lock())
+        self.m=Manager()
+        self.buffer_dict=self.m.dict()
+        self.index_queue=multiprocessing.Queue(self.buffer_size)
         self.index_queue.cancel_join_thread()
         self.indexs=self._init_indexs()
         self.buffer_index=0
         self.current_index=0
         self.workers=[]
         self.buffer_end=False
-        for i in range(0,num_workers):
-            w=multiprocessing.Process(target=_data_worker,args=(self.dataset,self.index_queue,self.data_buffer))
+        self._fill_index_queue()
+        
+        self.buffer_dict["buff_out"]=None
+        for i in range(0,self.num_workers):
+            self.buffer_dict["buff_in_"+str(i)]=None
+            w=multiprocessing.Process(target=_data_worker,args=(i,self.dataset,self.index_queue,self.buffer_dict))
             w.start()
             self.workers.append(w)
+        w=multiprocessing.Process(target=_run_memory_queue,args=(self.num_workers,self.buffer_size,self.buffer_dict))
+        w.start()
+        self.workers.append(w)
 
     def _fill_index_queue(self):
         if(self.buffer_end):
@@ -109,9 +139,8 @@ class _BufferDataLoaderIter(object):
                 self.buffer_index=0
                 if(self.loop_mode):
                     continue
-                else:
-                    self.buffer_end=True
-                    break
+                self.buffer_end=True
+                break
             self.index_queue.put(self.indexs[self.buffer_index])
             self.buffer_index+=1
 
@@ -145,15 +174,22 @@ class _BufferDataLoaderIter(object):
 
         ret_num=0
         if(len(self.dataset)-self.current_index<self.batch_size):
-            ret_num=len(self.dataset-self.current_index)
+            ret_num=len(self.dataset)-self.current_index
             self.current_index=len(self.dataset)
         else:
             ret_num=self.batch_size
             self.current_index+=self.batch_size
 
         data_list=[]
+        start = time.time()
+
         for i in range(0,ret_num):
-            data_list.append(self.data_buffer.get())
+            while(self.buffer_dict["buff_out"] is None):
+                #self.wait.wait()
+                time.sleep(0.001)
+            data_list.append(self.buffer_dict["buff_out"])
+            self.buffer_dict["buff_out"]=None
+
         self._fill_index_queue()
         return self.collect_fn(data_list)
 
@@ -169,9 +205,8 @@ class _BufferDataLoaderIter(object):
     next=__next__
 
     def __del__(self):
-        self.data_buffer.cancel_join_thread()
         self.index_queue.cancel_join_thread()
-        self.data_buffer.close()
         self.index_queue.close()
         for w in self.workers:
-            w.close()
+            w.terminate()
+        self.m.shutdown()
