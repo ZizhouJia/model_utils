@@ -1,7 +1,7 @@
-#the super version of dataloader and dataset
+the super version of dataloader and dataset
 import numpy as np
-import multiprocessing
-from torch.multiprocessing import Queue
+import torch.multiprocessing as multiprocessing
+from multiprocessing import Manager
 import torch
 import time
 import queue
@@ -76,21 +76,25 @@ class BufferDataLoader(object):
         return len(self.dataset)
 
 
-def _data_worker(worker_id,dataset,index_queue,data_queue):
+def _data_worker(worker_id,dataset,index_queue,buffer_dict):
+    #wait=threading.Condition(threading.Lock())
     while(True):
+        while(buffer_dict["buff_in_"+str(worker_id)] is not None):
+            time.sleep(0.001)
         index=index_queue.get()
-        data_queue.put(dataset.__getitem__(index))
+        buffer_dict["buff_in_"+str(worker_id)]=dataset.__getitem__(index)
 
 
-def _run_memory_queue(workers,buffer_size,data_queues,out_queue):
+def _run_memory_queue(workers,buffer_size,buffer_dict):
     memory_queue=queue.Queue(buffer_size)
     while(True):
         for i in range(0,workers):
-            if(data_queues[i].full() and not memory_queue.full()):
-                memory_queue.put(data_queues[i].get()])
-
-        if(out_queue.empty() and not memory_queue.empty()):
-            out_queue.put(memory_queue.get())
+            if(buffer_dict["buff_in_"+str(i)] is not None  and not memory_queue.full()):
+                memory_queue.put(buffer_dict["buff_in_"+str(i)])
+                buffer_dict["buff_in_"+str(i)]=None
+        if(buffer_dict["buff_out"] is None and not memory_queue.empty()):
+            buffer_dict["buff_out"]=memory_queue.get()
+            continue
 
 
 class _BufferDataLoaderIter(object):
@@ -105,25 +109,24 @@ class _BufferDataLoaderIter(object):
         self.loop_mode=False
         #init worker
         #self.wait=threading.Condition(threading.Lock())
+        self.m=Manager()
+        self.buffer_dict=self.m.dict()
         self.index_queue=multiprocessing.Queue(self.buffer_size)
         self.index_queue.cancel_join_thread()
-        self.out_queue=Queue(1)
         self.indexs=self._init_indexs()
         self.buffer_index=0
         self.current_index=0
         self.workers=[]
-        self.data_queues=[]
         self.buffer_end=False
         self._fill_index_queue()
 
         self.buffer_dict["buff_out"]=None
         for i in range(0,self.num_workers):
-            q=Queue(1)
-            w=multiprocessing.Process(target=_data_worker,args=(i,self.dataset,self.index_queue,q))
+            self.buffer_dict["buff_in_"+str(i)]=None
+            w=multiprocessing.Process(target=_data_worker,args=(i,self.dataset,self.index_queue,self.buffer_dict))
             w.start()
             self.workers.append(w)
-            self.data_queues.append(q)
-        w=multiprocessing.Process(target=_run_memory_queue,args=(self.num_workers,self.buffer_size,self.data_queues,self.out_queue))
+        w=multiprocessing.Process(target=_run_memory_queue,args=(self.num_workers,self.buffer_size,self.buffer_dict))
         w.start()
         self.workers.append(w)
 
@@ -156,7 +159,7 @@ class _BufferDataLoaderIter(object):
             self.current_index=(self.current_index+self.batch_size)%len(self.dataset)
             data_list=[]
             for i in range(0,self.batch_size):
-                data_list.append(self.out_queue.get())
+                data_list.append(self.data_buffer.get())
             self._fill_index_queue()
             return self.collect_fn(data_list)
 
@@ -181,9 +184,15 @@ class _BufferDataLoaderIter(object):
         start = time.time()
 
         for i in range(0,ret_num):
-            data_list.append(self.out_queue.get())
+            while(self.buffer_dict["buff_out"] is None):
+                #self.wait.wait()
+                time.sleep(0.001)
+            data_list.append(self.buffer_dict["buff_out"])
+            self.buffer_dict["buff_out"]=None
+
         self._fill_index_queue()
         return self.collect_fn(data_list)
+
 
 
     def __iter__(self):
@@ -196,11 +205,8 @@ class _BufferDataLoaderIter(object):
     next=__next__
 
     def __del__(self):
+        self.index_queue.cancel_join_thread()
+        self.index_queue.close()
         for w in self.workers:
             w.terminate()
-
-        self.data_queues.append(self.out_queue)
-        self.data_queues.append(self.index_queue)
-        for q in self.data_queues:
-            q.cancel_join_thread()
-            q.close()
+        self.m.shutdown()
