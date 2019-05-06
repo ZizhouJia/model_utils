@@ -748,9 +748,9 @@ class feature_extractor_solver(solver):
     def main_loop(self):
         if(self.model_path is not None):
             self.restore_params_with_path(path)
-        image_ids=None
-        features=None
-        labels=None
+        image_ids=[]
+        features=[]
+        labels=[]
         self.train_mode()
         for step,data in enumerate(self.dataloader):
             image_id,x,y=data
@@ -760,21 +760,13 @@ class feature_extractor_solver(solver):
             for i in range(0,self.split_times):
                 feature=self.models[0](x[i,:,:,:,:])
                 feature=feature.view(feature.size(0),-1)
-                if(features is None):
-                    #image_ids=np.array(image_id[i])
-                    features=feature.detach().cpu().numpy()
-                    #labels=y[i].detach().numpy().cpu()
-                else:
-                    #image_ids=np.concatenate((image_ids,image_id[i]),axis=0)
-                    features=np.concatenate((features,feature.detach().cpu().numpy()),axis=0)
-                    #labels=np.concatenate((labels,y[i]),axis=0)
-            if(image_ids is None):
-                image_ids=np.array(image_id)
-                labels=y.detach().cpu().numpy()
-            else:
-                image_ids=np.concatenate((image_ids,image_id),axis=0)
-                labels=np.concatenate((labels,y.detach().cpu().numpy()),axis=0)
+                features.append(feature.detach().cpu().numpy())
+            image_ids.append(np.array(image_id))
+            labels.append(y.detach().cpu().numpy())
             print("step "+str(step))
+        image_ids=np.concatenate(image_ids,axis=0)
+        labels=np.concatenate(labels,axis=0)
+        features=np.concatenate(features,axis=0)
         #extract pca
         if(self.pca_save_path is not None):
             mean,vals,vects=utils.pca_three_value(features)
