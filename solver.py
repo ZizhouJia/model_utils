@@ -51,6 +51,7 @@ class solver(object):
 
         #set models
         models=[]
+        torch.cuda.set_device(self.config["device_use"][0])
         for i in range(0,len(self.config["model_class"])):
             model_class=self.config["model_class"][i]
             param=self.config["model_params"][i]
@@ -61,7 +62,7 @@ class solver(object):
         #set optimizer
         if(self.config["optimizer_function"] is not None):
             optimizers=self.config["optimizer_function"](models,**self.config["optimizer_params"])
-            solver.set_optimizers(optimizers)
+            self.set_optimizers(optimizers)
 
     def get_config(self):
         return self.config
@@ -229,9 +230,7 @@ class solver(object):
 
     #parallel function to send the models to certain device
     def parallel(self, models, device_ids=[0]):
-        #set device
         print("use device: "+str(device_ids))
-        torch.cuda.set_device(device_ids[0])
         #set gpu mode
         for i in range(0,len(models)):
             models[i]=models[i].cuda()
@@ -252,7 +251,7 @@ class common_solver(solver):
         self.request=request()
 
     def load_config(self):
-        super(self,common_solver).load_config()
+        super(common_solver,self).load_config()
         if(self.config is None):
             raise NotImplementedError("the main_loop begin before the config set")
         self.epochs=self.config["epochs"]
@@ -475,7 +474,7 @@ class t_sne_solver(common_solver):
 
 class vedio_classify_solver(common_solver):
     def __init__(self):
-        super(vedio_classify_solver.self).__init__()
+        super(vedio_classify_solver,self).__init__()
         self.loss_function=nn.CrossEntropyLoss()
         self.pred=[]
         self.label=[]

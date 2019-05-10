@@ -103,7 +103,6 @@ class _BufferDataLoaderIter(object):
         self.buffer_index=0
         self.current_index=0
         self.workers=[]
-        self.buffer_end=False
         self._fill_index_queue()
 
         for i in range(0,self.num_workers):
@@ -112,16 +111,10 @@ class _BufferDataLoaderIter(object):
             self.workers.append(w)
 
     def _fill_index_queue(self):
-        if(self.buffer_end):
-            return
         while(not self.index_queue.full()):
             if(self.buffer_index==len(self.indexs)):
                 self.indexs=self._init_indexs()
                 self.buffer_index=0
-                if(self.loop_mode):
-                    continue
-                self.buffer_end=True
-                break
             self.index_queue.put(self.indexs[self.buffer_index])
             self.buffer_index+=1
 
@@ -145,11 +138,15 @@ class _BufferDataLoaderIter(object):
             return self.collect_fn(data_list)
 
         if(self.drop_last and len(self.dataset)-self.current_index<self.batch_size):
+            ret_num=len(self.datset)-self.current_index
+            for i in range(0,self.batch_size):
+                self.data_queue.get()
+            self.current_index=0
+            self._fill_index_queue()
             raise StopIteration
 
         if(self.current_index==len(self.dataset)):
             self.current_index=0
-            self.buffer_end=False
             self._fill_index_queue()
             raise StopIteration
 
@@ -162,7 +159,6 @@ class _BufferDataLoaderIter(object):
             self.current_index+=self.batch_size
 
         data_list=[]
-        start = time.time()
 
         for i in range(0,ret_num):
             data_list.append(self.data_queue.get())

@@ -13,8 +13,7 @@ def generate_optimizers(models, lrs, optimizer_type='sgd', weight_decay=0.0005):
 
     if(optimizer_type == 'adam'):
         for i in range(0, len(models)):
-            optimizer = torch.optim.Adam(models[i].parameters(
-            ), lr=lrs[i], weight_decay=weight_decay)
+            optimizer = torch.optim.Adam(models[i].parameters(), lr=lrs[i], weight_decay=weight_decay)
             # optimizer=nn.DataParallel(optimizer)
             optimizers.append(optimizer)
     return optimizers
