@@ -54,13 +54,15 @@ class collect_fn_base(object):
 #accelerate the dataloader with the buffer for show read dataset
 #note the BufferDataLoader just support many num_workers if the num_workers set to be 0,it mean the 1 worker
 class BufferDataLoader(object):
-    def __init__(self,dataset,batch_size=1,shuffle=False,num_workers=0,drop_last=False,collect_fn=None,buffer_size=100):
+    def __init__(self,dataset,batch_size=1,shuffle=False,num_workers=0,drop_last=False,loop_mode=False,collect_fn=None,buffer_size=100):
         self.dataset=dataset
         self.batch_size=batch_size
         self.shuffle=shuffle
         self.num_workers=num_workers
         self.drop_last=drop_last
         self.buffer_size=buffer_size
+        self.loop_mode=loop_mode
+        self.iterator=None
         if(self.num_workers<=0):
             self.num_workers=1
         if(collect_fn is None):
@@ -70,7 +72,9 @@ class BufferDataLoader(object):
 
 
     def __iter__(self):
-        return _BufferDataLoaderIter(self)
+        if(self.iterator is None):
+            self.iterator=_BufferDataLoaderIter(self)
+        return self.iterator
 
     def __len__(self):
         return len(self.dataset)
@@ -93,7 +97,7 @@ class _BufferDataLoaderIter(object):
         self.buffer_size=loader.buffer_size
         self.drop_last=loader.drop_last
         self.collect_fn=loader.collect_fn
-        self.loop_mode=False
+        self.loop_mode=loader.loop_mode
         #init worker
         #self.wait=threading.Condition(threading.Lock())
         self.m=Manager()
