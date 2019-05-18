@@ -17,8 +17,6 @@ def common_solver_config():
     config_dict={
     "task_name":None,
     "epochs":0,
-    "batch_size":1,
-    "test_batch_size":1,
     "model_class":[],
     "model_params":[],
     "optimizer_function":None,

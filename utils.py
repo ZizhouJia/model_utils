@@ -1,4 +1,7 @@
 import numpy as np
+import os
+import cv2
+import skimage.measure import compare_psnr,compare_ssim
 #take the tencorp data preprocess by the transform tencorp and return the pair data
 #now it just support (x,y) pairs
 def tencrop_process(data):
@@ -30,3 +33,30 @@ def pca_three_value(data):
     cov=np.cov(data,rowvar=0)
     eig_vals,eig_vects=np.linalg.eig(np.mat(cov))
     return mean,eig_vals,eig_vects
+
+#the images from 0 to 255
+def write_images(images,index,file_path="default_image_path"):
+    if(not os.path.exists(file_path)):
+        os.mkdir(file_path)
+    index_path=os.path.join(file_path,int(index))
+    if(not os.path.exists(index_path)):
+        os.mkdir(index_path)
+
+    if(isinstance(images,dict)):
+        for k in images:
+            cv2.imwrite(os.path.join(index_path,str(k)+".jpg"),images[k])
+
+    if(isinstance(images,list)):
+        for k in range(0,len(images)):
+            cv2.imwrite(os.path.join(index_path,str(k)+".jpg"),images[k])
+
+    print("unsupport image save data type")
+
+def PSNR(output,target):
+    return compare_psnr(target,output,data_range=1.0)
+
+def SSIM(output,target):
+    gray_out=cv2.cvtColor(output,cv2.COLOR_RGB2GRAY)
+    gray_target=cv2.cvtColor(target,cv2.COLOR_RGB2GRAY)
+    score,diff=compare_ssim(gray_out,gray_target,full=True,data_range=1.0)
+    return score
