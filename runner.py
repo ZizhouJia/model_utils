@@ -94,6 +94,15 @@ class runner(object):
         else:
             return -1
 
+    def _check_card(self,mem_use,device_use):
+        if(len(mem_use)!=len(device_use)):
+            print("The mem use is not equal to deivce_use")
+            return False
+        for i in range(0,len(device_use)):
+            if(self.nvidia_free[device_use[i]]<self.mem_use[i]):
+                return False
+        return True
+
     def main_loop(self):
        # multiprocessing.set_start_method("spawn")
         while(len(self.tasks)!=0 or len(self.running_tasks)!=0):
@@ -101,7 +110,12 @@ class runner(object):
             handled=-1
             for i in range(0,len(self.tasks)):
                 t=self.tasks[i]
-                device_use=self._dispatch_cards(t.memory_use)
+                device_use=-1
+                if(t.config["device_use"] is not None):
+                    if(self._check_card(t.memory_use,t.config["device_use"])):
+                        device_use=t.config.device_use["device_use"]
+                else:
+                    device_use=self._dispatch_cards(t.memory_use)
                 if(device_use!=-1):
                     print("************************begin task "+t.task_name+"****************")
                     w=worker(t,device_use,self.error_dict,self.result_dict)

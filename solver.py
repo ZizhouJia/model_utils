@@ -37,6 +37,19 @@ class solver(object):
         # self.kernel_processer.set_models(models)
         # self.kernel_processer.set_optimizers(optimizers)
 
+    def get_defualt_config():
+        config_dict={
+        "task_name":None,
+        "model_class":[],
+        "model_params":[],
+        "optimizer_function":None,
+        "optimizer_params":{},
+        "device_use":None, #set the device automatic if the device_use is None, else set the certaion numbers
+        "summary_writer_open":True, #open the summart writer
+        "mem_use":None
+        }
+        return config_dict
+
     def set_config(self,config):
         self.config=config
         self.load_config()
@@ -250,12 +263,22 @@ class common_solver(solver):
         super(common_solver,self).__init__()
         self.request=request()
 
+    def get_defualt_config():
+        config=solver.get_defualt_config()
+        config["epochs"]=0
+        config["learning_rate_decay_epochs"]=[]
+        config["train"]=True
+        config["validate"]=True
+        config["test"]=True
+        config["begin_epoch"]=0
+        config["restored_path"]=None
+        return config
+
     def load_config(self):
         super(common_solver,self).load_config()
         if(self.config is None):
             raise NotImplementedError("the main_loop begin before the config set")
         self.epochs=self.config["epochs"]
-        self.learning_rate_decay_epochs=self.config["learning_rate_decay_epochs"]
         self.train_loader,self.validate_loader,self.test_loader=self.config["dataset_function"](**self.config["dataset_function_params"])
         self.if_train=self.config["train"]
         self.if_validate=self.config["validate"]
@@ -298,7 +321,6 @@ class common_solver(solver):
                 self.request.data=data
                 self.test()
             self.after_test()
-
 
     def train(self):
         pass
@@ -797,8 +819,8 @@ class detection_solver(common_solver):
     def __init__(self):
         super(detection_solver,self).__init__()
 
-    def config(self):
-        super(detection_solver,self).config()
+    def load_config(self):
+        super(detection_solver,self).load_config()
 
     def train(self):
         pass
