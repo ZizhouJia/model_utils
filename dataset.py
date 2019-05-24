@@ -84,7 +84,8 @@ def _data_worker(worker_id,dataset,index_queue,data_queue):
     #wait=threading.Condition(threading.Lock())
     while(True):
         index=index_queue.get()
-        data_queue.put(dataset.__getitem__(index))
+        item=dataset.__getitem__(index)
+        data_queue.put(item)
 
 
 
@@ -98,8 +99,6 @@ class _BufferDataLoaderIter(object):
         self.drop_last=loader.drop_last
         self.collect_fn=loader.collect_fn
         self.loop_mode=loader.loop_mode
-        #init worker
-        #self.wait=threading.Condition(threading.Lock())
         self.m=Manager()
         self.data_queue=self.m.Queue(self.buffer_size)
         self.index_queue=self.m.Queue(self.buffer_size)
@@ -119,6 +118,7 @@ class _BufferDataLoaderIter(object):
             if(self.buffer_index==len(self.indexs)):
                 self.indexs=self._init_indexs()
                 self.buffer_index=0
+                continue
             self.index_queue.put(self.indexs[self.buffer_index])
             self.buffer_index+=1
 

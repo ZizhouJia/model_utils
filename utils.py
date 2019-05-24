@@ -27,6 +27,9 @@ def calculate_acc(pred,y):
 def pca_three_value(data):
     mean=np.mean(data,axis=0)
     data_mean=data-mean
-    cov=np.cov(data,rowvar=0)
+    cov=np.cov(data_mean,rowvar=0)
     eig_vals,eig_vects=np.linalg.eig(np.mat(cov))
+    eig_indice=np.argsort(-eig_vals)
+    eig_vects=eig_vects[:,eig_indice]
+    eig_vals=eig_vals[eig_indice]
     return mean,eig_vals,eig_vects

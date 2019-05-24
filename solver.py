@@ -9,7 +9,7 @@ import torchvision.utils as vutils
 import torchvision
 import h5py
 
-from . import draw
+# from . import draw
 from . import config as cfg
 from . import module
 from . import utils
@@ -321,6 +321,7 @@ class common_solver(solver):
     def before_validate(self):
         pass
 
+
     def after_validate(self):
         pass
 
@@ -539,12 +540,14 @@ class vedio_classify_solver(common_solver):
 
         loss.backward()
         if(self.grad_plenty!=0):
-            nn.utils.clip_grad_norm(self.models[0].parameters(), self.grad_plenty, norm_type=2)
+            nn.utils.clip_grad_norm_(self.models[0].parameters(), self.grad_plenty, norm_type=2)
         self.optimize_all()
         self.zero_grad_for_all()
         if(self.request.iteration%10==0):
             show_dict={}
             pred_label=torch.max(pred,1)[1]
+            #print(pred_label)
+            #print(y)
             acc=torch.sum((pred_label==y).float())/x.size(0)
             show_dict["train_acc"]=acc.detach().cpu().item()
             show_dict["train_loss"]=loss.detach().cpu().item()
@@ -580,7 +583,7 @@ class vedio_classify_solver(common_solver):
         for i in range(0,pred.shape[0]):
             self.pred.append(pred[i,:])
             self.label.append(y[i])
-            self.image_name.append(image_name[i])
+            #self.image_name.append(image_name[i])
         self.loss_value.append(loss.detach().cpu().item())
         self.element_number.append(x.size(0))
 
