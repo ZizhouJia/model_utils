@@ -47,10 +47,12 @@ def write_images(images,index,file_path="default_image_path"):
 
     if(isinstance(images,dict)):
         for k in images:
+            images[k]=cv2.cvtColor(images[k],cv2.COLOR_RGB2BGR)
             cv2.imwrite(os.path.join(index_path,str(k)+".jpg"),images[k])
 
     if(isinstance(images,list)):
         for k in range(0,len(images)):
+            images[k]=cv2.cvtColor(images[k],cv2.COLOR_RGB2BGR)
             cv2.imwrite(os.path.join(index_path,str(k)+".jpg"),images[k])
 
     print("unsupport image save data type")
