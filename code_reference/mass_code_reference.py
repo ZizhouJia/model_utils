@@ -1,7 +1,7 @@
-import torch
 import math
+
+import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 # weight initialization
 
@@ -46,3 +46,18 @@ def parallel(models, device_ids=[0]):
     for i in range(0, len(models)):
         ret.append(nn.DataParallel(models[i], device_ids=device_ids))
     return ret
+
+
+def gradient_penalty(y, x):
+    """Compute gradient penalty: (L2_norm(dy/dx) - 1)**2."""
+    weight = torch.ones(y.size()).cuda()
+    dydx = torch.autograd.grad(outputs=y,
+                               inputs=x,
+                               grad_outputs=weight,
+                               retain_graph=True,
+                               create_graph=True,
+                               only_inputs=True)[0]
+
+    dydx = dydx.view(dydx.size(0), -1)
+    dydx_l2norm = torch.sqrt(torch.sum(dydx**2, dim=1))
+    return torch.mean((dydx_l2norm-1)**2)

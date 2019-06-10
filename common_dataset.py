@@ -1,8 +1,10 @@
-import numpy as np
-import random
-import torch
 import os
-from PIL import Image,ImageFile
+import random
+
+import numpy as np
+import torch
+from PIL import Image, ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 # import Image
 #the dict dict["file name"]=label

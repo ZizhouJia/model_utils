@@ -1,7 +1,9 @@
-import torch
 import math
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 def generate_optimizers(models, lrs, optimizer_type='sgd', weight_decay=0.0005):
     optimizers = []

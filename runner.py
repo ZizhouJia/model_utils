@@ -1,12 +1,14 @@
-import torch
-from pynvml import *
-import torch.nn as nn
-from tensorboardX import SummaryWriter
 import multiprocessing
-import time
 import signal
+import time
 import traceback
 from copy import deepcopy
+
+import torch
+import torch.nn as nn
+from pynvml import *
+from tensorboardX import SummaryWriter
+
 
 class worker(multiprocessing.Process):
     def __init__(self,t,device_use,error_dict,result_dict):

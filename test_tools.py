@@ -1,7 +1,8 @@
-import torchvision
 import torch
 import torch.nn as nn
+import torchvision
 import torchvision.transforms as transforms
+
 
 class cifar10_dataset(torch.utils.data.Dataset):
     def __init__(self,transform,train=True):

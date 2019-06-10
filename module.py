@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class MultBoxLoss(nn.Module):
     def __init__(self,num_class,overlap_thresh,prior_for_matching,
     bkg_label,neg_mining,neg_pos,neg_overlap,encode_target,variance):

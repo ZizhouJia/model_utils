@@ -1,11 +1,13 @@
 import argparse
+import json
+import logging
 import random
 import string
-import logging
 import time
-import json
+
+from flask import Flask, request
 from pynvml import *
-from flask import Flask,request
+
 from flask_apscheduler import APScheduler
 
 nvidia_total=[]

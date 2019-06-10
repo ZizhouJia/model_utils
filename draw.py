@@ -1,8 +1,10 @@
 from __future__ import division
-import  numpy as np
-from sklearn.manifold import TSNE
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.ticker import MultipleLocator
+from sklearn.manifold import TSNE
+
 
 def plotCM(matrix, savname,classes=None):
     """classes: a list of class names"""
