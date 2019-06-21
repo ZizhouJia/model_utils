@@ -27,13 +27,13 @@ class request:
 class base_config(object):
     def __init__(self):
         self.task_name = "defualt"
-        self.model_classs = []
+        self.model_classes = []
         self.model_params = []
         self.optimizer_function = None
         self.optimizer_params = {}
         # set the device automatic if the device_use is None, else set the certaion numbers
         self.device_use = None
-        self.mem_use = None  # set the memory use
+        self.memory_use = None  # set the memory use
         self.summary_writer_open = True  # open the summart writer
         self.model_save_path = "checkpoints"
         self.timestemp = None  # set none to generate a new stemp
@@ -50,13 +50,14 @@ class solver(object):
         self.timestemp = None
         self.writer = None
 
+    @staticmethod
     def get_defualt_config():
         default_config = base_config()
         return default_config
 
     def load_config(self):
         # set task_name
-        if(self.config.task_name is None):
+        if(self.config.task_name is not None):
             self.task_name = self.config.task_name
         else:
             self.task_name = "default"
@@ -81,17 +82,17 @@ class solver(object):
         # set models
         models = []
         torch.cuda.set_device(self.config.device_use[0])
-        for i in range(0, len(self.config.model_class)):
-            model_class = self.config.model_class[i]
-            param = self.config.model_params[i]
-            models.append(model_class(**param))
+        for i in range(0, len(self.config.model_classes)):
+            model_class = self.config.model_classes[i]
+            params = self.config.model_params[i]
+            models.append(model_class(**params))
         self.set_models(models)
         self.parallel(self.config.device_use)
 
         # set optimizer
-        if(self.config["optimizer_function"] is not None):
-            optimizers = self.config["optimizer_function"](
-                self.models, **self.config["optimizer_params"])
+        if(self.config.optimizer_function is not None):
+            optimizers = self.config.optimizer_function(
+                self.models, **self.config.optimizer_params)
             self.set_optimizers(optimizers)
 
     def set_models(self, models):
@@ -140,8 +141,21 @@ class solver(object):
         for key in log_dict:
             self.writer.add_scalar("scalar/"+key, log_dict[key], index)
 
-    def print_log(self, log_dict):
-        print(log_dict)
+    def print_log(self, log_dict,epoch=-1,iteration=-1,step=-1):
+        output_string="("
+        if(epoch!=-1):
+            output_string+=str(epoch)
+            output_string+=", "
+        if(iteration!=-1):
+            output_string+=str(iteration)
+            output_string+=", "
+        if(step!=-1):
+            output_string+=str(step)
+            output_string+=", "
+        if(output_string[-2]==","):
+            output_string=output_string[:-2]
+        output_string+="): "
+        print(output_string+str(log_dict))
 
     def write_log_image(self, image_dict, index):
         if(self.writer is None):
@@ -282,7 +296,7 @@ class solver(object):
                 break
             self.models.append(torch.load(current_file))
             i += 1
-        self.parallel(self, self.config.device_use)
+        self.parallel(self.config.device_use)
 
         print("the models "+self.task_name +
               " has already been restored from "+str(path))
@@ -329,6 +343,7 @@ class common_solver(solver):
         super(common_solver, self).__init__()
         self.request = request()
 
+    @staticmethod
     def get_defualt_config():
         config = solver.get_defualt_config()
         config.epochs = 0
