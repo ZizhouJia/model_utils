@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import os
-from collections import OrderedDict
 from datetime import datetime
 
 import torch
 import torch.nn as nn
 import torchvision.utils as vutils
-from tensorboardX import SummaryWriter
 
 # from . import draw
+from . import saver
+from . import writer
 
 
 def get_time_string():
@@ -35,8 +35,8 @@ class base_config(object):
         self.device_use = None
         self.memory_use = None  # set the memory use
         self.summary_writer_open = True  # open the summart writer
-        self.model_save_path = "checkpoints"
         self.timestemp = None  # set none to generate a new stemp
+        self.model_save_path = "checkpoints"
 
 
 class solver(object):
@@ -46,9 +46,9 @@ class solver(object):
         self.writer = None
         self.optimizers = None
         self.config = None
-        self.model_save_path = None
         self.timestemp = None
         self.writer = None
+        self.saver = None
 
     @staticmethod
     def get_defualt_config():
@@ -68,16 +68,9 @@ class solver(object):
         else:
             self.timestemp = str(self.timestemp)
 
-        # set model_save_path
-        if(self.config.model_save_path is None):
-            self.model_save_path = "checkpoints"
-        else:
-            self.model_save_path = self.config.model_save_path
-
         # set summary writer if the writer close, it is none
         if(self.config.summary_writer_open):
-            self.writer = SummaryWriter(
-                "runs/"+self.task_name+"-"+self.timestemp)
+            self.writer = writer.writer(self.task_name+"-"+self.timestemp)
 
         # set models
         models = []
@@ -94,6 +87,13 @@ class solver(object):
             optimizers = self.config.optimizer_function(
                 self.models, **self.config.optimizer_params)
             self.set_optimizers(optimizers)
+
+        # set saver
+        self.saver = saver.saver(
+            self.config.model_save_path, (len(self.config.device_use) > 1))
+
+    def get_task_identifier(self):
+        return self.task_name+"-"+self.timestemp
 
     def set_models(self, models):
         self.models = models
@@ -134,191 +134,6 @@ class solver(object):
         for optimizer in self.optimizers:
             optimizer.zero_grad()
 
-    def write_log(self, log_dict, index):
-        if(self.writer is None):
-            print("Warning:the writer is forbidon")
-            return
-        for key in log_dict:
-            self.writer.add_scalar("scalar/"+key, log_dict[key], index)
-
-    def print_log(self, log_dict,epoch=-1,iteration=-1,step=-1):
-        output_string="("
-        if(epoch!=-1):
-            output_string+=str(epoch)
-            output_string+=", "
-        if(iteration!=-1):
-            output_string+=str(iteration)
-            output_string+=", "
-        if(step!=-1):
-            output_string+=str(step)
-            output_string+=", "
-        if(output_string[-2]==","):
-            output_string=output_string[:-2]
-        output_string+="): "
-        print(output_string+str(log_dict))
-
-    def write_log_image(self, image_dict, index):
-        if(self.writer is None):
-            print("Warning the writer is forbidon")
-            return
-        for key in image_dict:
-            self.writer.add_image(
-                'image/'+key, vutils.make_grid(image_dict[key], 1), index)
-
-    def save_single_model(self, model, model_path):
-        if(len(self.config.device_use) > 1):
-            torch.save(model.module, model_path)
-        else:
-            torch.save(model, model_path)
-
-    def restore_single_model(self, model_path):
-        model = torch.load(model_path)
-        model = model.cuda()
-        if(len(self.config.device_use) > 1):
-            model = nn.DataParallel(model, device_ids=self.config.device_use)
-        return model
-
-    def save_single_model_params(self, model, model_path):
-        if(len(self.config.device_use) > 1):
-            torch.save(model.module.state_dict(), model_path)
-        else:
-            torch.save(model.state_dict(), model_path)
-
-    def restore_single_model_params(self, model, model_path):
-        if(len(self.config.device_use) <= 1):
-            model.load_state_dict(torch.load(model_path))
-        else:
-            model_state = torch.load(model_path)
-            new_state = OrderedDict()
-            for key, v in model_state.items():
-                name = "module."+key
-                new_state[name] = v
-            model.load_state_dict(new_state)
-        return model
-
-    def save_params(self, save_string=None, with_timestemp=True):
-        path = self.model_save_path
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-
-        path = os.path.join(path, self.task_name)
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-
-        if(with_timestemp):
-            path = os.path.join(path, self.timestemp)
-            if(not os.path.exists(path)):
-                os.mkdir(path)
-
-        if(save_string is not None):
-            path = os.path.join(path, str(save_string))
-
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-
-        self.save_params_with_path(path)
-
-    def restore_params(self, save_string=None, task_name=None, timestemp=None):
-        path = self.model_save_path
-        path = os.path.join(path, task_name)
-
-        if(task_name is None):
-            path = os.path.join(path, self.task_name)
-        else:
-            path = os.path.join(path, str(task_name))
-
-        if(timestemp is None):
-            path = os.path.join(path, self.timestemp)
-        else:
-            path = os.path.join(path, str(timestemp))
-
-        if(save_string is not None):
-            path = os.path.join(path, str(save_string))
-
-        self.restore_params_with_path(path)
-
-    def save_models(self, save_string=None, with_timestemp=True):
-        path = self.model_save_path
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-
-        path = os.path.join(path, self.task_name)
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-
-        if(with_timestemp):
-            path = os.path.join(path, self.timestemp)
-            if(not os.path.exists(path)):
-                os.mkdir(path)
-
-        if(save_string is not None):
-            path = os.path.join(path, str(save_string))
-
-        if(not os.path.exists(path)):
-            os.mkdir(path)
-        self.save_models_with_path(path)
-
-    def restore_models(self, save_string=None, task_name=None, timestemp=None):
-        path = self.model_save_path
-        path = os.path.join(path, task_name)
-
-        if(task_name is None):
-            path = os.path.join(path, self.task_name)
-        else:
-            path = os.path.join(path, str(task_name))
-
-        if(timestemp is None):
-            path = os.path.join(path, self.timestemp)
-        else:
-            path = os.path.join(path, str(timestemp))
-
-        if(save_string is not None):
-            path = os.path.join(path, str(save_string))
-
-        self.restore_models_with_path(path)
-
-    def save_models_with_path(self, path):
-        file_name = "model"
-        for i in range(0, len(self.models)):
-            model_path = os.path.join(path, file_name+"_"+str(i)+",pkl")
-            self.save_single_model(self.models[i], model_path)
-
-        print("the models "+self.task_name +
-              " has already been saved in :"+str(path))
-
-    def restore_models_with_path(self, path):
-        file_name = "model"
-        self.models = []
-        i = 0
-        while(True):
-            current_file = os.path.join(path, file_name+"_"+str(i)+".pkl")
-            if(not os.path.exists(current_file)):
-                break
-            self.models.append(torch.load(current_file))
-            i += 1
-        self.parallel(self.config.device_use)
-
-        print("the models "+self.task_name +
-              " has already been restored from "+str(path))
-
-    def restore_params_with_path(self, path):
-        file_name = "model"
-        for i in range(0, len(self.models)):
-            model_path = os.path.join(path, file_name+"_"+str(i)+",pkl")
-            self.restore_single_model_params(self.models[i], model_path)
-
-        print("the models params "+self.task_name +
-              " has already been restored from "+str(path))
-
-    def save_params_with_path(self, path):
-        file_name = "model"
-        for i in range(0, len(self.models)):
-            model_path = os.path.join(path, file_name+"_"+str(i)+",pkl")
-            self.save_single_model_params(self.models[i], model_path)
-
-        print("the models params "+self.task_name +
-              " has already been saved in :"+str(path))
-
     # parallel function to send the models to certain device
 
     def parallel(self, device_ids=[0]):
@@ -334,6 +149,9 @@ class solver(object):
         for i in range(0, len(self.models)):
             ret.append(nn.DataParallel(self.models[i], device_ids=device_ids))
         self.models = ret
+        # set the parallal flag
+        for model in self.models:
+            model._paral = True
         return ret
 
 

@@ -1,43 +1,50 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from collections import OrderedDict
 
-class MultBoxLoss(nn.Module):
-    def __init__(self,num_class,overlap_thresh,prior_for_matching,
-    bkg_label,neg_mining,neg_pos,neg_overlap,encode_target,variance):
-        super(MultiBoxLoss,self).__init__()
-        self.num_classes=num_class
-        self.threshold=overlap_thresh
-        self.background_label=bkg_label
-        self.encode_target=encode_target
-        self.use_prior_for_matching=prior_for_matching
-        self.do_neg_mining=neg_mining
-        self.negpos_ratio=neg_pos
-        self.neg_overlap=neg_overlap
-        self.variance=variance
-    def forward(self,preddictions,targets):
-        local_data,conf_data,priors=preddictions
-        num=local_data.size(0)
-        priors=priors[:local_data.size(1),:]
-        num_priors=priors.size(0)
-        num_classes=self.num_classes
+class Module(nn.Module):
+    def __init__(self):
+        super(Module,self).__init__()
+        self.model_save_path="checkpoints"
+        self._paral=False
+    
+    def switch_save_path(self,model_save_path):
+        if(not os.path.exists(model_save_path)):
+            print("Warning: The path doesn't exist, Fail to switch the path to "+str(model_save_path))
+            return
+        else:
+            self.model_save_path=model_save_path
 
-        loc_t=torch.Tensor(num,num_priors,4)
-        conf_t=torch.LongTensor(num,num_priors)
-        for idx in range(num):
-            truths=targets[idx][:,:-1].data
-            labels=targets[idx][:,-1].data
-            defaults=priors.data
-            match(self.threshold,truths,defaults,self.variance,labels,loc_t,conf_t,idx)
+    
+    def save_params(self,file_name):
+        if(not os.path.exists(self.model_save_path)):
+            os.makedirs(file_name)
+        save_path=os.path.join(self.model_save_path,file_name)
+        if(self._paral):
+            torch.save(self.module.state_dict(),save_path)
+        else:
+            torch.save(self.state_dict(),save_path)
 
-class distilling_classify_loss(nn.Module):
-    def __init__(self,lamda=0.5):
-        super(self,distilling_classify_loss).__init__()
-        self.lamda=lamda
+    def load_params(self,file_name):
+        save_path=os.path.join(self.model_save_path,file_name)
+        if(not os.path.exists(save_path)):
+            print("Warning: Path not exists, Fail to load params")
+            return 
 
-    def forward(self,pred,y,soft_y):
-        pred=F.sigmoid(pred)
-        loss=-(self.lamda*y+(1-self.lamda)*y_soft)*torch.log(pred)-(self.lamda*(1-y)+(1-self.lamda)*(1-soft_y))*torch.log(1-pred)
-        loss=torch.mean(loss)
-        return loss
+        if(not self._paral):
+            self.load_state_dict(torch.load(save_path))
+        else:
+            model_state=torch.load(save_path)
+            new_state=OrderedDict()
+            for key,v in model_state.items():
+                name="module."+key
+                new_state[name]=v
+            self.load_state_dict(new_state)
+
+
+            
+        
+

@@ -34,7 +34,6 @@ class task(object):
 
 class runner(object):
     def __init__(self):
-        self.writer = SummaryWriter("runs/runner-logs")
         nvmlInit()
         self.nvidia_free = []
         self.nvidia_total = []
@@ -65,7 +64,7 @@ class runner(object):
                 logic_free[t.config.device_use[j]] -= t.config.memory_use[j]
         self.logic_free = logic_free
 
-    def generate_tasks(self, task_list):
+    def add_tasks(self, task_list):
         tasks = []
         for i in range(0, len(task_list)):
             t = task()
@@ -75,7 +74,7 @@ class runner(object):
             t.config = deepcopy(task_list[i]["config"])
             t.memory_use = task_list[i]["config"].memory_use
             tasks.append(t)
-        self.tasks = tasks
+        self.tasks.extend(tasks)
 
     def _dispatch_cards(self, memory_use):
         card_use = []
