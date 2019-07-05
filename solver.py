@@ -54,7 +54,7 @@ class solver(object):
         self.saver = None
 
     @staticmethod
-    def get_defualt_config():
+    def get_default_config():
         default_config = base_config()
         return default_config
 
@@ -168,8 +168,8 @@ class common_solver(solver):
         self.request = request()
 
     @staticmethod
-    def get_defualt_config():
-        config = solver.get_defualt_config()
+    def get_default_config():
+        config = solver.get_default_config()
         config.epochs = 0
         config.learning_rate_decay_epochs = []
         config.train = True
