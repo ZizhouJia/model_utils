@@ -34,9 +34,12 @@ class base_config(object):
         # set the device automatic if the device_use is None, else set the certaion numbers
         self.device_use = None
         self.memory_use = None  # set the memory use
-        self.summary_writer_open = True  # open the summart writer
+        self.writer_open = True  # open the summart writer
         self.timestemp = None  # set none to generate a new stemp
         self.model_save_path = "checkpoints"
+        self.logger_save_path="logs"
+        self.image_save_path="images"
+        self.summary_writer_save_path="runs"
 
 
 class solver(object):
@@ -69,8 +72,11 @@ class solver(object):
             self.timestemp = str(self.timestemp)
 
         # set summary writer if the writer close, it is none
-        if(self.config.summary_writer_open):
-            self.writer = writer.writer(self.task_name+"-"+self.timestemp)
+        self.writer = writer.writer(self.task_name+"-"+self.timestemp,
+                summary_writer_default_path=self.config.summary_writer_save_path,
+                logger_default_path=self.config.logger_save_path,
+                image_default_path=self.config.image_save_path
+                ,output_log=self.config.writer_open)
 
         # set models
         models = []

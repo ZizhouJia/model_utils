@@ -68,3 +68,14 @@ def SSIM(output,target):
     gray_target=cv2.cvtColor(target,cv2.COLOR_RGB2GRAY)
     score,diff=compare_ssim(gray_out,gray_target,full=True,data_range=1.0)
     return score
+
+def padding_images(images,padding_exp=16):
+    height=(images.size(2)//padding_exp+1)*padding_exp
+    width=(images.size(3)//padding_exp+1)*padding_exp
+    images=F.pad(images,(0,width,0,height))
+    return images
+
+def cut_images(images,padding_exp=32):
+    hegith=images.size(2)-images.size(2)%padding_exp
+    width=images.size(3)-images.size(3)%padding_exp
+    return images[:,:,:height,:width]
